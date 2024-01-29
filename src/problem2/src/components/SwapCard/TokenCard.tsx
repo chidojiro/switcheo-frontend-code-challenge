@@ -1,13 +1,12 @@
 import { Input } from '@/shadcn/components/ui/input';
 import { ClassName } from '@/types/common';
+import { SupportedCurrencyEnum } from '@/types/currency';
 import clsx from 'clsx';
 import { TokenSelect } from './TokenSelect';
-import { SupportedCurrencyEnum } from '@/types/currency';
-import { useEffect, useState } from 'react';
 
 export type TokenInputValue = {
   amount: string;
-  currency?: SupportedCurrencyEnum;
+  currency: SupportedCurrencyEnum;
 };
 
 export type TokenCardProps = ClassName & {
@@ -15,15 +14,10 @@ export type TokenCardProps = ClassName & {
   value: TokenInputValue;
   onChange?: (value: TokenInputValue) => void;
   activeCurrency?: SupportedCurrencyEnum;
+  insufficient?: boolean;
 };
 
-export const TokenCard = ({ className, label, value, onChange, activeCurrency }: TokenCardProps) => {
-  const [amount, setAmount] = useState(value.amount);
-
-  useEffect(() => {
-    setAmount(value.amount);
-  }, [value.amount]);
-
+export const TokenCard = ({ className, label, value, onChange, activeCurrency, insufficient }: TokenCardProps) => {
   const handleChange = <TKey extends keyof TokenInputValue, TData = TokenInputValue[TKey]>(key: TKey, data: TData) => {
     onChange?.({ ...value, [key]: data });
   };
@@ -33,17 +27,17 @@ export const TokenCard = ({ className, label, value, onChange, activeCurrency }:
       <label className='block mb-1 text-sm'>{label}</label>
       <div className='flex items-center gap-4'>
         <Input
-          value={amount}
+          value={value.amount}
           onChange={e => {
             if (Number.isNaN(Number(e.target.value))) {
               e.preventDefault();
               return;
             }
 
-            setAmount(e.target.value);
+            handleChange('amount', e.target.value);
           }}
-          onBlur={() => handleChange('amount', amount)}
           placeholder='0'
+          error={insufficient}
         />
         <TokenSelect
           value={value.currency}
@@ -51,6 +45,7 @@ export const TokenCard = ({ className, label, value, onChange, activeCurrency }:
           activeCurrency={activeCurrency}
         />
       </div>
+      {insufficient && <p className='mt-1 text-sm text-red-600'>Insufficient balance</p>}
     </div>
   );
 };

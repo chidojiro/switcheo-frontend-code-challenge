@@ -1,11 +1,13 @@
+import { useToken } from '@/hooks/useToken';
+import useWalletBalance from '@/hooks/useWalletBalance';
 import { Button } from '@/shadcn/components/ui/button';
 import { ClassName } from '@/types/common';
 import { SupportedCurrencyEnum } from '@/types/currency';
 import clsx from 'clsx';
 import { ArrowDownUp, Loader2Icon } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
+import { Modal } from '../Modal';
 import { TokenCard, TokenInputValue } from './TokenCard';
-import { useToken } from '@/hooks/useToken';
 
 export type SwapCardProps = ClassName & {};
 
@@ -17,6 +19,8 @@ const getFixedAmount = (amount: number) => {
 };
 
 export const SwapCard = ({ className }: SwapCardProps) => {
+  const { balance, swap } = useWalletBalance();
+
   const [payTokenInput, setPayTokenInput] = useState<TokenInputValue>({
     amount: '',
     currency: SupportedCurrencyEnum.LUNA,
@@ -36,6 +40,7 @@ export const SwapCard = ({ className }: SwapCardProps) => {
     enabled: isFetchingTokenEnabled,
     keepPreviousData: true,
   });
+
   const {
     token: receiveToken,
     isFetchingToken: isFetchingReceiveToken,
@@ -54,6 +59,22 @@ export const SwapCard = ({ className }: SwapCardProps) => {
     setReceiveTokenInput(temp);
   };
 
+  const updateReceiveTokenInput = (payAmount: number) => {
+    if (!exchangeRate || isFetchingPayToken || isFetchingReceiveToken) return;
+
+    const newReceiveAmount = payAmount ? payAmount * exchangeRate : 0;
+
+    setReceiveTokenInput(prev => ({ ...prev, amount: newReceiveAmount ? getFixedAmount(newReceiveAmount) : '' }));
+  };
+
+  const updatePayTokenInput = (receiveAmount: number) => {
+    if (!exchangeRate || isFetchingPayToken || isFetchingReceiveToken) return;
+
+    const newPayAmount = receiveAmount ? receiveAmount / exchangeRate : 0;
+
+    setPayTokenInput(prev => ({ ...prev, amount: newPayAmount ? getFixedAmount(newPayAmount) : '' }));
+  };
+
   const handlePayTokenChange = (value: TokenInputValue) => {
     if (value.currency === receiveTokenInput.currency) {
       swapTokens();
@@ -61,6 +82,7 @@ export const SwapCard = ({ className }: SwapCardProps) => {
     }
 
     setPayTokenInput(value);
+    updateReceiveTokenInput(value.amount ? +value.amount : 0);
 
     refetchPayToken();
     refetchReceiveToken();
@@ -73,22 +95,11 @@ export const SwapCard = ({ className }: SwapCardProps) => {
     }
 
     setReceiveTokenInput(value);
+    updatePayTokenInput(value.amount ? +value.amount : 0);
 
     refetchPayToken();
     refetchReceiveToken();
   };
-
-  const updateReceiveTokenInput = useCallback(() => {
-    if (!exchangeRate || isFetchingPayToken || isFetchingReceiveToken) return;
-
-    const payAmount = payTokenInput.amount ? Number(payTokenInput.amount) : 0;
-
-    const newReceiveAmount = payAmount ? payAmount * exchangeRate : 0;
-
-    setReceiveTokenInput(prev => ({ ...prev, amount: newReceiveAmount ? getFixedAmount(newReceiveAmount) : '' }));
-  }, [exchangeRate, isFetchingPayToken, isFetchingReceiveToken, payTokenInput]);
-
-  useEffect(updateReceiveTokenInput, [updateReceiveTokenInput]);
 
   const renderExchangeRate = () => {
     if (isFetchingTokenEnabled && (isFetchingPayToken || isFetchingReceiveToken))
@@ -106,17 +117,25 @@ export const SwapCard = ({ className }: SwapCardProps) => {
     );
   };
 
+  const isBalanceExceeded = Number(payTokenInput.amount) > (balance[payTokenInput.currency] ?? 0);
+
   return (
     <div className={clsx('rounded-xl p-4 bg-white shadow-lg text-primary', className)}>
       <h3 className='mb-4 font-medium'>Swap</h3>
 
       <div className='flex flex-col items-center gap-4'>
-        <TokenCard
-          label='Amount to send'
-          value={payTokenInput}
-          onChange={handlePayTokenChange}
-          activeCurrency={payTokenInput.currency}
-        />
+        <div className='w-full'>
+          <TokenCard
+            label='Amount to send'
+            value={payTokenInput}
+            onChange={handlePayTokenChange}
+            activeCurrency={payTokenInput.currency}
+            insufficient={isBalanceExceeded}
+          />
+          <div className='flex items-center w-full gap-2 mt-2'>
+            Available: {(balance[payTokenInput.currency] ?? 0).toFixed(6)}
+          </div>
+        </div>
         <Button size='icon' variant='outline' onClick={swapTokens} className='mx-auto'>
           <ArrowDownUp />
         </Button>
@@ -127,8 +146,25 @@ export const SwapCard = ({ className }: SwapCardProps) => {
           activeCurrency={receiveTokenInput.currency}
         />
       </div>
-      <div className='flex items-center gap-2 px-4 mt-2'>{renderExchangeRate()}</div>
-      <Button className='w-full mt-5 text-base uppercase' size='lg'>
+      <div className='flex items-center gap-2 mt-2'>{renderExchangeRate()}</div>
+      <Button
+        className='w-full mt-5 text-base uppercase'
+        size='lg'
+        disabled={isBalanceExceeded || !payTokenInput.amount}
+        onClick={() => {
+          swap({
+            from: payTokenInput.currency,
+            fromAmount: Number(payTokenInput.amount),
+            to: receiveTokenInput.currency,
+            toAmount: Number(receiveTokenInput.amount),
+          });
+          setPayTokenInput(prev => ({ ...prev, amount: '' }));
+          setReceiveTokenInput(prev => ({ ...prev, amount: '' }));
+          Modal.confirm({
+            title: 'Swap Successful!',
+            content: `You have successfully swapped ${payTokenInput.amount} ${payTokenInput.currency} to ${receiveTokenInput.amount} ${receiveTokenInput.currency}`,
+          });
+        }}>
         Confirm swap
       </Button>
     </div>

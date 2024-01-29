@@ -1,9 +1,10 @@
-import { Button } from '@/shadcn/components/ui/button';
+import { Button, ButtonProps } from '@/shadcn/components/ui/button';
 import * as Dialog from '@radix-ui/react-dialog';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import { XIcon } from 'lucide-react';
-import { createContext, useContext, useRef } from 'react';
+import { createContext, useContext, useRef, useState } from 'react';
+import * as ReactDOM from 'react-dom/client';
 import { twMerge } from 'tailwind-merge';
 import Overlay, { OverlayProps } from './Overlay';
 
@@ -105,3 +106,43 @@ export default Modal;
 Modal.Header = ModalHeader;
 Modal.Body = ModalBody;
 Modal.Footer = ModalFooter;
+
+export type ConfirmProps = React.PropsWithChildren & {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  title: React.ReactNode;
+  content?: React.ReactNode;
+  confirmButtonProps?: ButtonProps;
+};
+
+export const ConfirmModal = ({ content, title, confirmButtonProps, children, open }: ConfirmProps) => {
+  const [isOpen, setIsOpen] = useState(true);
+
+  const handleConfirm = async (e: any) => confirmButtonProps?.onClick?.(e);
+
+  return (
+    <Modal open={open ?? isOpen} onOpenChange={setIsOpen}>
+      <ModalHeader>{title}</ModalHeader>
+      <ModalBody className='text-base text-black'>{children ?? content}</ModalBody>
+      <ModalFooter>
+        <Button
+          children='Confirm'
+          {...confirmButtonProps}
+          onClick={async e => {
+            await handleConfirm(e);
+            setIsOpen(false);
+          }}
+        />
+      </ModalFooter>
+    </Modal>
+  );
+};
+
+const confirm = (props: ConfirmProps) => {
+  const div = document.createElement('div');
+  document.body.appendChild(div);
+
+  ReactDOM.createRoot(div).render(<ConfirmModal {...props} />);
+};
+
+Modal.confirm = confirm;
