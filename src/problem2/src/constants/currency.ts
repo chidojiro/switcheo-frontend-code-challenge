@@ -5,7 +5,6 @@ import {
   TokenBlurIcon,
   TokenBneoIcon,
   TokenBusdIcon,
-  TokenEthIcon,
   TokenEvmosIcon,
   TokenGmxIcon,
   TokenIbcxIcon,
