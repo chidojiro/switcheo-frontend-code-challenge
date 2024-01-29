@@ -2,7 +2,7 @@
 
 ## Demo site
 
-https://mellifluous-ganache-ccc81d.netlify.app/
+https://startling-yeot-a217dd.netlify.app
 
 ## Running project locally
 
